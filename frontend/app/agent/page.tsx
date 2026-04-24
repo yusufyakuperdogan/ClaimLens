@@ -39,6 +39,18 @@ export default function AgentPage() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [search, setSearch] = useState("");
 
+  // Session expired or token rejected: drop the token and show the login form again.
+  const handleUnauthorized = () => {
+    setToken(null);
+    setAuthenticated(false);
+    setPassword("");
+    setSelected(null);
+    setReport(null);
+    setPhotos([]);
+    setLightboxIndex(null);
+    setLoading(true);
+  };
+
   useEffect(() => {
     if (!authenticated) return;
     const fetchClaims = async () => {
@@ -46,8 +58,15 @@ export default function AgentPage() {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/claims/`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (res.status === 401) {
+          setToken(null);
+          setAuthenticated(false);
+          setPassword("");
+          return;
+        }
+        if (!res.ok) throw new Error(`Failed to load claims (status ${res.status})`);
         const data = await res.json();
-        setClaims(data.claims);
+        setClaims(data.claims ?? []);
       } catch (err) {
         console.error(err);
       }
@@ -62,8 +81,16 @@ export default function AgentPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/damage/report/${claimId}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
+      if (res.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      if (!res.ok) {
+        setReport(null);
+        return;
+      }
       const data = await res.json();
-      setReport(data.damage_report);
+      setReport(data.damage_report ?? null);
     } catch (err) {
       setReport(null);
     }
@@ -75,8 +102,16 @@ export default function AgentPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/damage/photos/${claimId}`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
+      if (res.status === 401) {
+        handleUnauthorized();
+        return;
+      }
+      if (!res.ok) {
+        setPhotos([]);
+        return;
+      }
       const data = await res.json();
-      setPhotos(data.photos);
+      setPhotos(data.photos ?? []);
     } catch (err) {
       setPhotos([]);
     }
