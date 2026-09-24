@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function AgentPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -39,6 +39,15 @@ export default function AgentPage() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [search, setSearch] = useState("");
 
+  // Report/photo requests for the selected claim; aborted when another claim is selected
+  const detailRequestRef = useRef<AbortController | null>(null);
+  // Id of the currently selected claim, so late responses for other claims are ignored
+  const selectedIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedIdRef.current = selected?.id ?? null;
+  }, [selected]);
+
   // Session expired or token rejected: drop the token and show the login form again.
   const handleUnauthorized = () => {
     setToken(null);
@@ -75,55 +84,69 @@ export default function AgentPage() {
     fetchClaims();
   }, [authenticated, token]);
 
-  const fetchReport = async (claimId: string) => {
+  const isStale = (claimId: string, signal: AbortSignal) =>
+    signal.aborted || selectedIdRef.current !== claimId;
+
+  const fetchReport = async (claimId: string, signal: AbortSignal) => {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/damage/report/${claimId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` }, signal },
       );
       if (res.status === 401) {
         handleUnauthorized();
         return;
       }
+      if (isStale(claimId, signal)) return;
       if (!res.ok) {
         setReport(null);
         return;
       }
       const data = await res.json();
+      if (isStale(claimId, signal)) return;
       setReport(data.damage_report ?? null);
     } catch (err) {
+      if (isStale(claimId, signal)) return;
       setReport(null);
     }
   };
 
-  const fetchPhotos = async (claimId: string) => {
+  const fetchPhotos = async (claimId: string, signal: AbortSignal) => {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/damage/photos/${claimId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
+        { headers: { Authorization: `Bearer ${token}` }, signal },
       );
       if (res.status === 401) {
         handleUnauthorized();
         return;
       }
+      if (isStale(claimId, signal)) return;
       if (!res.ok) {
         setPhotos([]);
         return;
       }
       const data = await res.json();
+      if (isStale(claimId, signal)) return;
       setPhotos(data.photos ?? []);
     } catch (err) {
+      if (isStale(claimId, signal)) return;
       setPhotos([]);
     }
   };
 
   const handleSelectClaim = (claim: any) => {
+    detailRequestRef.current?.abort();
+    const controller = new AbortController();
+    detailRequestRef.current = controller;
+    selectedIdRef.current = claim.id;
+
     setSelected(claim);
     setReport(null);
     setPhotos([]);
     setLightboxIndex(null);
-    fetchReport(claim.id);
-    fetchPhotos(claim.id);
+    fetchReport(claim.id, controller.signal);
+    fetchPhotos(claim.id, controller.signal);
   };
 
   const updateStatus = async (claimId: string, status: string) => {
