@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Literal, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from ..database import get_db
@@ -22,7 +22,7 @@ class ClaimCreate(BaseModel):
     user_id: str
 
 class ClaimStatusUpdate(BaseModel):
-    status: str
+    status: Literal["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED"]
 
 @router.get("/")
 async def get_claims(db: AsyncSession = Depends(get_db), current_agent: str = Depends(get_current_agent)):
@@ -60,6 +60,9 @@ async def update_claim_status(claim_id: str, update: ClaimStatusUpdate, db: Asyn
     if not claim:
         raise HTTPException(status_code=404, detail="Claim not found")
     claim.status = update.status
+    claim.agent_id = current_agent
+    # updated_at is "timestamp without time zone", so store UTC without tzinfo (as with incident_date)
+    claim.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     await db.refresh(claim)
     return {"message": "Status updated", "claim": claim}
