@@ -103,6 +103,7 @@ async def get_claim_photos(claim_id: str, current_agent: str = Depends(get_curre
             urls.append(signed['signedURL'])
         return {"photos": urls}
     except Exception as e:
+        logger.exception("Loading photos failed for claim %s: %s", claim_id, e)
         return {"photos": []}
 
 
