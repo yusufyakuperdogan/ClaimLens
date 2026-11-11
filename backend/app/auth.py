@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from jose import jwt, JWTError
+import jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -42,5 +42,6 @@ def get_current_agent(credentials: HTTPAuthorizationCredentials = Depends(securi
         if username is None:
             raise credentials_exception
         return username
-    except JWTError:
+    # InvalidTokenError covers bad signatures, malformed tokens and expired tokens
+    except jwt.InvalidTokenError:
         raise credentials_exception
