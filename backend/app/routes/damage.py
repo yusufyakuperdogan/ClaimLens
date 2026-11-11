@@ -15,6 +15,26 @@ router = APIRouter(
     tags=["Damage Analysis"]
 )
 
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+HEIC_BRANDS = {b"heic", b"heix", b"heim", b"heis", b"hevc", b"hevx", b"hevm", b"hevs"}
+
+
+def detect_image_type(header: bytes) -> str | None:
+    """Identify the image format from the file's leading bytes instead of the client's content type."""
+    if header.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return "image/webp"
+    if header[4:8] == b"ftyp":
+        # HEIC is an ISO media file: check the major brand and the compatible brands in the ftyp box
+        box_end = min(int.from_bytes(header[:4], "big"), len(header))
+        brands = [header[8:12]] + [header[i:i + 4] for i in range(16, box_end - 3, 4)]
+        if any(brand in HEIC_BRANDS for brand in brands):
+            return "image/heic"
+    return None
+
 @router.get("/report/{claim_id}")
 async def get_damage_report(claim_id: str, db: AsyncSession = Depends(get_db), current_agent: str = Depends(get_current_agent)):
     result = await db.execute(
@@ -65,14 +85,28 @@ async def analyze_claim_damage(
     if existing_report.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Damage report already exists for this claim")
 
+    # Validate every file before touching storage, so a bad file can't leave a partial upload
+    images = []
+    for i, file in enumerate(files):
+        name = file.filename or f"Photo {i + 1}"
+        image_bytes = await file.read(MAX_FILE_SIZE + 1)
+        if len(image_bytes) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail=f"'{name}' is larger than 10 MB. Please upload a smaller photo.")
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail=f"'{name}' is empty. Please upload a valid photo.")
+        mime_type = detect_image_type(image_bytes[:64])
+        if mime_type is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{name}' is not a supported image. Please upload JPG, PNG, WEBP or HEIC photos.",
+            )
+        images.append((image_bytes, mime_type))
+
     # Clear photos left over from a previous failed attempt
     await delete_claim_photos(claim_id)
 
-    images = []
-    for i, file in enumerate(files):
-        image_bytes = await file.read()
-        images.append((image_bytes, file.content_type))
-        await upload_photo(image_bytes, claim_id, i, file.content_type)
+    for i, (image_bytes, mime_type) in enumerate(images):
+        await upload_photo(image_bytes, claim_id, i, mime_type)
 
     try:
         ai_result = await analyze_damage(images)
