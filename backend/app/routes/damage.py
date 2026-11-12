@@ -7,8 +7,22 @@ from ..models.claim import Claim, DamageReport
 from ..services.ai_service import analyze_damage, DamageAnalysisError
 from ..services.storage_service import upload_photo, delete_claim_photos
 from ..auth import get_current_agent
+from google.api_core.exceptions import GoogleAPIError
+from google.auth.exceptions import GoogleAuthError
+from storage3.exceptions import StorageException
 import asyncio
+import httpx
+import json
+import logging
 import uuid
+
+logger = logging.getLogger(__name__)
+
+# Errors from Supabase Storage: API errors, network/timeout errors that storage3 doesn't wrap, and the
+# JSONDecodeError storage3 raises when an error response isn't JSON (e.g. a proxy's HTML outage page)
+STORAGE_ERRORS = (StorageException, httpx.HTTPError, json.JSONDecodeError)
+# Errors from the Gemini API: quota, timeouts, outages, bad requests, and invalid/missing API key
+GEMINI_ERRORS = (GoogleAPIError, GoogleAuthError)
 
 router = APIRouter(
     prefix="/damage",
@@ -102,16 +116,23 @@ async def analyze_claim_damage(
             )
         images.append((image_bytes, mime_type))
 
-    # Clear photos left over from a previous failed attempt
-    await delete_claim_photos(claim_id)
+    try:
+        # Clear photos left over from a previous failed attempt
+        await delete_claim_photos(claim_id)
 
-    for i, (image_bytes, mime_type) in enumerate(images):
-        await upload_photo(image_bytes, claim_id, i, mime_type)
+        for i, (image_bytes, mime_type) in enumerate(images):
+            await upload_photo(image_bytes, claim_id, i, mime_type)
+    except STORAGE_ERRORS:
+        logger.exception("Photo storage failed for claim %s", claim_id)
+        raise HTTPException(status_code=502, detail="Photo storage service is unavailable. Please try again.")
 
     try:
         ai_result = await analyze_damage(images)
     except DamageAnalysisError as e:
         raise HTTPException(status_code=502, detail=str(e))
+    except GEMINI_ERRORS:
+        logger.exception("Gemini analysis failed for claim %s", claim_id)
+        raise HTTPException(status_code=502, detail="AI analysis service is unavailable. Please try again.")
 
     damage_report = DamageReport(
         id=str(uuid.uuid4()),
