@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,13 +35,38 @@ class ClaimCreate(BaseModel):
 class ClaimStatusUpdate(BaseModel):
     status: Literal["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED"]
 
-@router.get("/")
+# Response schemas: what clients receive. Internal fields (user_id, priority_score, fraud_flag) are left out.
+# Optional fields mirror the nullable columns on the Claim model.
+class ClaimOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    status: Optional[str] = None
+    incident_type: str
+    incident_date: datetime
+    location: str
+    description: Optional[str] = None
+    agent_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+class ClaimListResponse(BaseModel):
+    claims: list[ClaimOut]
+
+class ClaimResponse(BaseModel):
+    claim: ClaimOut
+
+class ClaimMessageResponse(BaseModel):
+    message: str
+    claim: ClaimOut
+
+@router.get("/", response_model=ClaimListResponse)
 async def get_claims(db: AsyncSession = Depends(get_db), current_agent: str = Depends(get_current_agent)):
     result = await db.execute(select(Claim).order_by(desc(Claim.created_at)))
     claims = result.scalars().all()
     return {"claims": claims}
 
-@router.get("/{claim_id}")
+@router.get("/{claim_id}", response_model=ClaimResponse)
 async def get_claim(claim_id: str, db: AsyncSession = Depends(get_db), current_agent: str = Depends(get_current_agent)):
     result = await db.execute(select(Claim).where(Claim.id == claim_id))
     claim = result.scalar_one_or_none()
@@ -49,7 +74,7 @@ async def get_claim(claim_id: str, db: AsyncSession = Depends(get_db), current_a
         raise HTTPException(status_code=404, detail="Claim not found")
     return {"claim": claim}
 
-@router.post("/")
+@router.post("/", response_model=ClaimMessageResponse)
 async def create_claim(claim: ClaimCreate, db: AsyncSession = Depends(get_db)):
     new_claim = Claim(
         id=str(uuid.uuid4()),
@@ -64,7 +89,7 @@ async def create_claim(claim: ClaimCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(new_claim)
     return {"message": "Claim created successfully", "claim": new_claim}
 
-@router.put("/{claim_id}/status")
+@router.put("/{claim_id}/status", response_model=ClaimMessageResponse)
 async def update_claim_status(claim_id: str, update: ClaimStatusUpdate, db: AsyncSession = Depends(get_db), current_agent: str = Depends(get_current_agent)):
     result = await db.execute(select(Claim).where(Claim.id == claim_id))
     claim = result.scalar_one_or_none()

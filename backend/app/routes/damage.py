@@ -1,7 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 from ..database import get_db
 from ..models.claim import Claim, DamageReport
 from ..services.ai_service import analyze_damage, DamageAnalysisError
@@ -49,7 +51,35 @@ def detect_image_type(header: bytes) -> str | None:
             return "image/heic"
     return None
 
-@router.get("/report/{claim_id}")
+# Response schemas: what clients receive. Optional fields mirror the nullable columns on the DamageReport model.
+class DamageReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    claim_id: str
+    damage_type: str
+    vehicle_make: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    vehicle_color: Optional[str] = None
+    severity: str
+    estimated_cost_min: float
+    estimated_cost_max: float
+    confidence_score: float
+    ai_summary: str
+    created_at: Optional[datetime] = None
+
+class DamageReportResponse(BaseModel):
+    damage_report: DamageReportOut
+
+class PhotosResponse(BaseModel):
+    photos: list[str]
+
+class AnalyzeResponse(BaseModel):
+    message: str
+    photos_analyzed: int
+    damage_report: DamageReportOut
+
+@router.get("/report/{claim_id}", response_model=DamageReportResponse)
 async def get_damage_report(claim_id: str, db: AsyncSession = Depends(get_db), current_agent: str = Depends(get_current_agent)):
     result = await db.execute(
         select(DamageReport).where(DamageReport.claim_id == claim_id)
@@ -59,7 +89,7 @@ async def get_damage_report(claim_id: str, db: AsyncSession = Depends(get_db), c
         raise HTTPException(status_code=404, detail="Damage report not found")
     return {"damage_report": report}
 
-@router.get("/photos/{claim_id}")
+@router.get("/photos/{claim_id}", response_model=PhotosResponse)
 async def get_claim_photos(claim_id: str, current_agent: str = Depends(get_current_agent)):
     from ..services.storage_service import supabase
     try:
@@ -76,7 +106,7 @@ async def get_claim_photos(claim_id: str, current_agent: str = Depends(get_curre
         return {"photos": []}
 
 
-@router.post("/analyze/{claim_id}")
+@router.post("/analyze/{claim_id}", response_model=AnalyzeResponse)
 async def analyze_claim_damage(
     claim_id: str,
     files: List[UploadFile] = File(...),
