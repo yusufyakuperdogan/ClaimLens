@@ -1,13 +1,13 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from dotenv import load_dotenv
-import os
+from .env import require_env
 
-load_dotenv()
-
-DATABASE_URL = os.getenv("DATABASE_URL").replace(
-    "postgresql://", "postgresql+asyncpg://"
-)
+DATABASE_URL = require_env("DATABASE_URL")
+# Use the asyncpg driver for both postgres:// and postgresql:// URLs (only the scheme prefix is changed)
+for prefix in ("postgres://", "postgresql://"):
+    if DATABASE_URL.startswith(prefix):
+        DATABASE_URL = "postgresql+asyncpg://" + DATABASE_URL[len(prefix):]
+        break
 
 engine = create_async_engine(
     DATABASE_URL,

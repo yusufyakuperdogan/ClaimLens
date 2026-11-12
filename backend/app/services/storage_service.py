@@ -1,13 +1,10 @@
 import asyncio
-import os
 from supabase import create_client
-from dotenv import load_dotenv
-
-load_dotenv()
+from ..env import require_env
 
 supabase = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_SERVICE_KEY")
+    require_env("SUPABASE_URL"),
+    require_env("SUPABASE_SERVICE_KEY")
 )
 
 async def delete_claim_photos(claim_id: str) -> None:

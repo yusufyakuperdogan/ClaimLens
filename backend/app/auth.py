@@ -1,12 +1,14 @@
-import os
 from datetime import datetime, timedelta
 import jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from .env import require_env
 
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+SECRET_KEY = require_env("JWT_SECRET_KEY")
+# Read per request in routes/auth_api.py; checked here so a missing hash stops the app at startup
+require_env("AGENT_PASSWORD_HASH")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
