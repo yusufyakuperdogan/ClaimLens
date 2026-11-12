@@ -38,7 +38,7 @@ ClaimLens automates the insurance claims process using AI. Customers upload dama
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 16.2.3, TypeScript, Tailwind CSS |
+| Frontend | Next.js 16.4.3, TypeScript, Tailwind CSS |
 | Backend | FastAPI, Python |
 | AI | Google Gemini Vision |
 | Database | PostgreSQL (Supabase) |
