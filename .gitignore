@@ -12,3 +12,8 @@ frontend/.env.local
 # General
 .DS_Store
 *.pyc
+
+# AI assistant and editor files
+CLAUDE.md
+AGENTS.md
+.vscode/
