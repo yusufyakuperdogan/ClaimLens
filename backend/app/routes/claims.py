@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from datetime import datetime, timezone
+from pydantic import BaseModel, Field, field_validator
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -15,11 +15,22 @@ router = APIRouter(
 )
 
 class ClaimCreate(BaseModel):
-    incident_type: str
+    # Must match the options in the customer claim form (frontend/app/customer/page.tsx)
+    incident_type: Literal["Car Accident", "Hail Damage", "Flood Damage", "Theft", "Vandalism", "Other"]
     incident_date: datetime
-    location: str
-    description: Optional[str] = None
+    location: str = Field(max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
     user_id: str
+
+    @field_validator("incident_date")
+    @classmethod
+    def incident_date_not_in_future(cls, value: datetime) -> datetime:
+        # The form sends the picked day as midnight UTC, so allow up to UTC+14 (the furthest-ahead
+        # time zone) to accept "today" for customers anywhere; anything later is a future date
+        as_utc = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        if as_utc > datetime.now(timezone.utc) + timedelta(hours=14):
+            raise ValueError("Incident date cannot be in the future")
+        return value
 
 class ClaimStatusUpdate(BaseModel):
     status: Literal["PENDING", "UNDER_REVIEW", "APPROVED", "REJECTED"]
