@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -9,10 +10,16 @@ from .routes.auth_api import router as auth_router, limiter
 
 load_dotenv()
 
+# Hide the API documentation (/docs, /redoc, /openapi.json) when ENVIRONMENT=production
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "").strip().lower() == "production"
+
 app = FastAPI(
     title="ClaimLens API",
     description="AI-powered insurance claims processing",
     version="1.0.0",
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+    openapi_url=None if IS_PRODUCTION else "/openapi.json",
 )
 
 # Rate limiting (used by POST /auth/login); exceeding a limit returns 429
