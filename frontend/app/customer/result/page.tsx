@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, Suspense } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
 function ResultContent() {
@@ -35,12 +36,12 @@ function ResultContent() {
       <div aria-hidden className="orb orb-delay bottom-[-20%] left-[-20%] h-[560px] w-[560px] bg-indigo-500/25" />
 
       <div className="w-full max-w-2xl">
-        <a href="/" className="back-link reveal mb-10">
+        <Link href="/" className="back-link reveal mb-10">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
             <path fillRule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
           </svg>
           Back to Home
-        </a>
+        </Link>
 
         <div className="reveal mb-6 flex items-center gap-5 rounded-3xl bg-emerald-400/[0.07] p-5 shadow-[0_0_80px_-30px_rgba(52,211,153,0.7)] ring-1 ring-inset ring-emerald-300/20 backdrop-blur-xl [animation-delay:60ms] sm:p-6">
           <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-200 to-teal-500 text-lg font-bold text-emerald-950 shadow-lg shadow-emerald-500/40">

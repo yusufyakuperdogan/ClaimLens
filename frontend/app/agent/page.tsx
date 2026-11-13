@@ -1,6 +1,35 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+
+// Shapes of the API responses (backend ClaimOut / DamageReportOut schemas)
+type Claim = {
+  id: string;
+  status: string | null;
+  incident_type: string;
+  incident_date: string;
+  location: string;
+  description: string | null;
+  agent_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type DamageReport = {
+  id: string;
+  claim_id: string;
+  damage_type: string;
+  vehicle_make: string | null;
+  vehicle_model: string | null;
+  vehicle_color: string | null;
+  severity: string;
+  estimated_cost_min: number;
+  estimated_cost_max: number;
+  confidence_score: number;
+  ai_summary: string;
+  created_at: string | null;
+};
 
 export default function AgentPage() {
   const [authenticated, setAuthenticated] = useState(false);
@@ -25,15 +54,15 @@ export default function AgentPage() {
       setToken(data.access_token);
       setAuthenticated(true);
       setPasswordError(false);
-    } catch (err) {
+    } catch {
       setPasswordError(true);
     }
   };
 
-  const [claims, setClaims] = useState<any[]>([]);
+  const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<any>(null);
-  const [report, setReport] = useState<any>(null);
+  const [selected, setSelected] = useState<Claim | null>(null);
+  const [report, setReport] = useState<DamageReport | null>(null);
   const [filter, setFilter] = useState("ALL");
   const [photos, setPhotos] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -105,7 +134,7 @@ export default function AgentPage() {
       const data = await res.json();
       if (isStale(claimId, signal)) return;
       setReport(data.damage_report ?? null);
-    } catch (err) {
+    } catch {
       if (isStale(claimId, signal)) return;
       setReport(null);
     }
@@ -129,13 +158,13 @@ export default function AgentPage() {
       const data = await res.json();
       if (isStale(claimId, signal)) return;
       setPhotos(data.photos ?? []);
-    } catch (err) {
+    } catch {
       if (isStale(claimId, signal)) return;
       setPhotos([]);
     }
   };
 
-  const handleSelectClaim = (claim: any) => {
+  const handleSelectClaim = (claim: Claim) => {
     detailRequestRef.current?.abort();
     const controller = new AbortController();
     detailRequestRef.current = controller;
@@ -169,8 +198,8 @@ export default function AgentPage() {
       }
 
       setClaims(claims.map((c) => (c.id === claimId ? { ...c, status } : c)));
-      setSelected({ ...selected, status });
-    } catch (err) {
+      if (selected) setSelected({ ...selected, status });
+    } catch {
       alert("Error updating status");
     }
   };
@@ -190,7 +219,7 @@ export default function AgentPage() {
     }
   };
 
-  const statusColor = (status: string) => {
+  const statusColor = (status: string | null) => {
     switch (status) {
       case "PENDING":
         return "bg-amber-400/10 text-amber-300 ring-1 ring-inset ring-amber-400/30 font-semibold";
@@ -296,12 +325,12 @@ export default function AgentPage() {
 
       <div className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/[0.07] bg-[#03050b]/60 px-4 backdrop-blur-xl sm:px-8">
         <div className="flex items-center gap-3">
-          <a href="/" className="flex items-center gap-2.5 text-xl font-semibold tracking-[-0.03em] text-white sm:text-2xl">
+          <Link href="/" className="flex items-center gap-2.5 text-xl font-semibold tracking-[-0.03em] text-white sm:text-2xl">
             <span className="h-7 w-7 text-cyan-300">{apertureIcon}</span>
             <span>
               Claim<span className="text-gradient">Lens</span>
             </span>
-          </a>
+          </Link>
           <span className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs font-medium text-cyan-200 ring-1 ring-inset ring-cyan-300/25">
             Agent Portal
           </span>

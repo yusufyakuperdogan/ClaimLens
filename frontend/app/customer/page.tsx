@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 export default function CustomerPage() {
@@ -47,7 +48,7 @@ export default function CustomerPage() {
       const data = await res.json()
       setClaimId(data.claim.id)
       setStep(2)
-    } catch (err) {
+    } catch {
       alert('Error submitting claim. Please try again.')
     } finally {
       setLoading(false)
@@ -75,7 +76,7 @@ export default function CustomerPage() {
         sessionStorage.setItem(`damage-report-${claimId}`, JSON.stringify(data.damage_report))
       } catch {}
       router.push(`/customer/result?id=${claimId}`)
-    } catch (err) {
+    } catch {
       alert('Error analyzing damage. Please try again.')
     } finally {
       setLoading(false)
@@ -88,12 +89,12 @@ export default function CustomerPage() {
       <div aria-hidden className="orb orb-delay bottom-[-20%] right-[-20%] h-[560px] w-[560px] bg-indigo-500/25" />
 
       <div className="w-full max-w-xl">
-        <a href="/" className="back-link reveal mb-10">
+        <Link href="/" className="back-link reveal mb-10">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
             <path fillRule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
           </svg>
           Back to Home
-        </a>
+        </Link>
 
         <div className="reveal mb-8 [animation-delay:60ms]">
           <h1 className="mb-2 text-4xl font-semibold tracking-[-0.03em] text-white sm:text-5xl">File a Claim</h1>
