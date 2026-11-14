@@ -29,9 +29,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "https://claim-lens-one.vercel.app"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(claims_router)
