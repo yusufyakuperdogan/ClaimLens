@@ -1,7 +1,13 @@
 from sqlalchemy import Column, String, Boolean, Integer, Float, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from ..database import Base
+
+
+def utc_now() -> datetime:
+    # Columns are "timestamp without time zone", so store the current UTC time without tzinfo
+    # (asyncpg rejects timezone-aware datetimes for these columns)
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Claim(Base):
@@ -17,8 +23,8 @@ class Claim(Base):
     description = Column(Text, nullable=True)
     priority_score = Column(Integer, default=0)
     fraud_flag = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now)
     damage_report = relationship("DamageReport", back_populates="claim", uselist=False)
 
 
@@ -36,5 +42,5 @@ class DamageReport(Base):
     estimated_cost_max = Column(Float, nullable=False)
     confidence_score = Column(Float, nullable=False)
     ai_summary = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     claim = relationship("Claim", back_populates="damage_report")
